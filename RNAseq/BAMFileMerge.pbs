@@ -1,0 +1,85 @@
+#PBS -A PAS0471
+#PBS -N BAMFileMerging
+#PBS -l nodes=1:ppn=28,walltime=24:00:00
+module load bamtools
+cd /fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/MergedBAMFiles/
+
+bamtools CMD BATCH test.R test.Rout 
+
+
+bamtools merge -in NM-15-120_S12_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-120_S12_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-120.BAM
+
+bamtools merge -in NM-15-122_S11_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-122_S11_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-122.BAM
+
+bamtools merge -in NM-15-128_S3_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-128_S3_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-128.BAM
+
+bamtools merge -in NM-15-133_S6_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-133_S6_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-133.BAM
+
+bamtools merge -in NM-15-136_S10_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-136_S10_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-136.BAM
+
+bamtools merge -in NM-15-137_S10_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-137_S10_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-137.BAM
+
+bamtools merge -in NM-15-156_S5_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-156_S5_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-156.BAM
+
+bamtools merge -in NM-15-157_S7_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-157_S7_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-157.BAM
+
+bamtools merge -in NM-15-159_S9_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-159_S9_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-159.BAM
+
+bamtools merge -in NM-15-160_S1_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-160_S1_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-160.BAM
+
+bamtools merge -in NM-15-166_S8_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-166_S8_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-166.BAM
+
+bamtools merge -in NM-15-170_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-170_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-170.BAM
+
+bamtools merge -in NM-15-175_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-175_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-175.BAM
+
+bamtools merge -in NM-15-177_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-177_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-177.BAM
+
+bamtools merge -in NM-15-182_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-182_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-182.BAM
+
+bamtools merge -in NM-15-183_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-183_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-183.BAM
+
+bamtools merge -in NM-15-186_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-186_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-186.BAM
+
+bamtools merge -in NM-15-188_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-188_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-188.BAM
+
+bamtools merge -in NM-15-189_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-189_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-189.BAM
+
+bamtools merge -in NM-15-192_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-192_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-192.BAM
+
+bamtools merge -in NM-15-195_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-195_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-195.BAM
+
+bamtools merge -in NM-15-197_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-197_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-197.BAM
+
+bamtools merge -in NM-15-198_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-198_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-198.BAM
+
+bamtools merge -in NM-15-199_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-199_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-199.BAM
+
+bamtools merge -in NM-15-202_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-202_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-202.BAM
+
+bamtools merge -in NM-15-203_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-203_S*_l002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-203.BAM
+
+bamtools merge -in NM-15-204_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-204_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-204.BAM
+
+bamtools merge -in NM-15-208_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-208_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-208.BAM
+
+bamtools merge -in NM-15-215_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-215_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-215.BAM
+
+bamtools merge -in NM-15-216_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-216_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-216.BAM
+
+bamtools merge -in NM-15-217_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-217_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-217.BAM
+
+bamtools merge -in NM-15-225_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-225_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-225.BAM
+
+bamtools merge -in NM-15-226_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-226_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-226.BAM
+
+bamtools merge -in NM-15-240_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-240_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-240.BAM
+
+bamtools merge -in NM-15-242_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-242_S*_l002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-242.BAM
+
+bamtools merge -in NM-15-245_S*_L001_R1_001.paired.fastq.gz.subread.BAM -in NM-15-245_S*_L002_R1_001.paired.fastq.gz.subread.BAM -out NM-15-245.BAM
+
+rm *.fastq.gz.subread.BAM
+
+
+

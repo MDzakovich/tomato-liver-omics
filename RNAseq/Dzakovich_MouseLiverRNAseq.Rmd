@@ -1,0 +1,543 @@
+---
+title: "Tomato-fed Mouse Liver RNAseq Data Analysis "
+author: "Michael Dzakovich and Jessica Cooperstone"
+date: "11/16/2018 and also after"
+output:
+  github_document:
+    toc: yes
+    toc_depth: 5
+---
+
+# Introduction
+
+## Load libraries
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(limma)
+library(Glimma)
+library(edgeR)
+library(Rsubread)
+library(RColorBrewer)
+library(reshape2)
+library(gplots)
+library(tidyverse)
+```
+
+
+## Let's build an index of the mouse genome 
+
+```{r, eval=F, echo=T}
+buildindex(basename="MouseRsubread_index",reference="GRCm38.p6.genome.fa")
+#Indexing allows for more efficient read alignment
+
+#Load our FASTQ files: 
+
+fastq.files.R1<-list.files(path = "/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/Lane1/", pattern = "NM.*_R1_001.paired.fastq.gz$", full.names = TRUE)
+
+fastq.files.R2<-list.files(path = "/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/Lane1/", pattern = "NM.*_R2_001.paired.fastq.gz$", full.names = TRUE)
+
+```
+
+
+## Let's align the reads (lane 1)
+```{r, eval=F, echo=T}
+# Map paired-end reads:
+align(index="MouseRsubread_index",readfile1 = fastq.files.R1 ,readfile2 = fastq.files.R2 ,type = "rna", nthreads = 28)
+
+# Check parameters used in alignment: 
+args(align)
+
+# Summary of proportion of read alignment: 
+Lane1bam.files <- list.files(path = "/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/Lane1/", pattern = ".BAM$", full.names = TRUE)
+propsLane1<-propmapped(Lane1bam.files, properlyPaired=TRUE)
+
+# write out 
+write.table(props,"MousealignmentProportionsLane1Rsubread.txt", sep = "\t")
+```
+
+## Let's align the reads (lane 2)
+```{r, eval=F, echo=T}
+#Change working directory
+setwd("/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/Lane2/")
+#Make sure you copy the index you made to the Lane2 folder as well
+
+#Map paired-end reads:
+align(index="MouseRsubread_index",readfile1 = fastq.files.R1 ,readfile2 = fastq.files.R2 ,type = "rna", nthreads = 28)
+
+#Check parameters used in alignment: 
+args(align)
+
+##Summary of proportion of read alignment: 
+Lane12am.files <- list.files(path = "/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/Lane2/", pattern = ".BAM$", full.names = TRUE)
+propsLane1<-propmapped(Lane1bam.files, properlyPaired=TRUE)
+write.table(props,"MousealignmentProportionsLane2Rsubread.txt", sep = "\t")
+```
+
+
+### Get BAM files from lane 1
+```{r, eval=F, echo=T}
+#Get bam files:
+#Lane 1
+bam.filesLane1 <- list.files(path = "/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/Lane1/", pattern = "NM.*.BAM$", full.names = TRUE) 
+
+
+#Get feature counts 
+fcLane1 <- featureCounts(bam.filesLane1, annot.ext = "gencode.vM17.annotation.gff3.gz", 
+                    isGTFAnnotationFile = TRUE, nthreads=28, isPairedEnd=TRUE, 
+                    GTF.featureType = "gene")
+
+annotationLane1<-(fcLane1$annotation)
+write.csv(annotationLane1, file="100918_Lane1Annotation.csv")
+
+propsLane1<-propmapped(bam.files, properlyPaired=TRUE)
+write.table(propsLane1,"Lane1MousealignmentProportionsRsubread.txt", sep = "\t")
+
+# See what slots are stored in fc
+names(fcLane1)
+
+## Take a look at the featurecounts stats
+fcLane1$stat
+annotationLane1<-(fcLane1$annotation)
+
+##Counts 
+head(fcLane1$counts)
+```
+
+
+### Get BAM files from lane 2
+```{r, eval=F, echo=T}
+#Lane 2 
+
+bam.filesLane2 <- list.files(path = "/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/Lane2/", pattern = "NM.*.BAM$", full.names = TRUE)
+
+fcLane2 <- featureCounts(bam.filesLane2, annot.ext = "gencode.vM17.annotation.gff3.gz", 
+                         isGTFAnnotationFile = TRUE, nthreads=28, isPairedEnd=TRUE, 
+                         GTF.featureType = "gene")
+
+annotationLane2<-(fcLane2$annotation)
+write.csv(annotationLane2, file="100918_Lane2Annotation.csv")
+
+propsLane2<-propmapped(bam.files, properlyPaired=TRUE)
+write.table(propsLane2,"Lane2MousealignmentProportionsRsubread.txt", sep = "\t")
+
+## Take a look at the featurecounts stats
+fcLane2$stat
+annotationLane2<-(fcLane2$annotation)
+
+##Counts 
+head(fcLane2$counts)
+```
+
+>For the convenience of the user, a text file (MergedCountData2.txt) is available to directly import to save time needed for calculating feature counts. Samples NM_15_186 and NM_15_189 (determined to be outliers) are already removed in MergedCountData2.txt. Should the user want to generate counts from scratch, the code above will accomplish these steps and then the Lane 1 and Lane 2 counts will need to be combined into a singular dataframe. The path specified in the "Get BAM Files from Lane 1/2" chunks will need to be changed to the user's desired location where BAM files are being stored. 
+
+## Testing for potential lane effects by MDS
+```{r, eval=T,fig.show='hide'}
+#knitr::opts_chunk$set(echo = TRUE)
+ 
+#knitr::opts_knit$set(root.dir = "/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/Lane1/")
+
+#setwd("/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/Lane1/")
+
+
+BothLanesCount <- read.table("BothLanesCount2.txt", header=T)
+
+
+#Make MDS Plot
+
+MDSplot<-plotMDS(BothLanesCount[,-1])
+
+Diet = c("Control","Control","Tangerine","Red","Control","Control","Red",
+              "Red","Control","Tangerine","Red","Red","Red","Red","Control",
+              "Control","Control","Tangerine","Tangerine",
+              "Tangerine","Tangerine","Red","Red","Red","Red","Control",
+              "Tangerine","Tangerine","Tangerine","Tangerine","Tangerine",
+              "Control","Tangerine","Control","Control","Control","Tangerine",
+              "Red","Control","Control","Red",    
+              "Red","Control","Tangerine","Red","Red","Red","Red","Control",
+              "Control","Control","Tangerine","Tangerine",
+              "Tangerine","Tangerine","Red","Red","Red","Red","Control",
+              "Tangerine","Tangerine","Tangerine","Tangerine","Tangerine",
+              "Control","Tangerine","Control")
+
+Lane = c("Lane 1","Lane 1","Lane 1","Lane 1","Lane 1",
+         "Lane 1","Lane 1","Lane 1","Lane 1","Lane 1","Lane 1","Lane 1",
+         "Lane 1","Lane 1","Lane 1","Lane 1","Lane 1","Lane 1","Lane 1",
+         "Lane 1","Lane 1","Lane 1","Lane 1","Lane 1","Lane 1","Lane 1",
+         "Lane 1","Lane 1","Lane 1","Lane 1","Lane 1","Lane 1","Lane 1",
+         "Lane 1","Lane 2","Lane 2","Lane 2","Lane 2","Lane 2","Lane 2",
+         "Lane 2","Lane 2","Lane 2","Lane 2","Lane 2","Lane 2","Lane 2",
+         "Lane 2","Lane 2","Lane 2","Lane 2","Lane 2","Lane 2","Lane 2",
+         "Lane 2","Lane 2","Lane 2","Lane 2","Lane 2","Lane 2","Lane 2",
+         "Lane 2","Lane 2","Lane 2","Lane 2","Lane 2","Lane 2","Lane 2")
+
+
+Diet<-as.factor(Diet)
+Lane<-as.factor(Lane)
+
+MDSLane_X<-MDSplot$x
+MDSLane_X<-as.numeric(MDSLane_X)
+MDSLane_Y<-MDSplot$y
+MDSLane_Y<-as.numeric(MDSLane_Y)
+
+MDSLaneCheck<-data.frame(Diet, Lane, MDSLane_X, MDSLane_Y)
+```
+
+### MDS scores plot to check for potential lane effects
+```{r, eval=T, echo=T}
+
+LaneEffectsCheck<-
+  MDSLaneCheck%>%
+  ggplot(aes(x = MDSLane_X, y = MDSLane_Y, color = Diet, fill=Diet, shape = Lane)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", alpha = 0.6) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black", alpha = 0.6) +
+  scale_color_manual(values = c("black", "#FF9300", "#941100"),
+                    labels = expression("Control", 
+                                        "Tangerine", 
+                                        "Red")) +
+  scale_fill_manual(values = c("black", "#FF9300", "#941100"),
+                    labels = expression("Control", 
+                                        "Tangerine", 
+                                        "Red")) + 
+  scale_shape_manual(values=c(21,22),
+                    labels = expression("Lane 1", 
+                                        "Lane 2")) +
+  theme_classic() + 
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12),
+        axis.text = element_text(size = 12),
+        legend.text.align = 0) +
+  labs(title = "Multi Dimensional Scaling Scores Plot - Testing Potential Lane Effects",
+       x = "Leading Log2 Fold Change: 54%",
+       y = "Leading Log2 Fold Change: 15%") 
+
+LaneEffectsCheck
+
+#ggsave("MDS_LaneEffectCheck.png", plot=LaneEffectsCheck, dpi=800, width = 9, height = 6, units ="in", device="jpeg")
+
+```
+
+>In our case, we do not have an appreciable lane effects. Therefore, we merged the count data from Lane 1 and Lane 2 together using BAMTools. This is a Linux based software and a batch file to run this code is available (BAMFilesMerge.pbs). This code allows the user to automate the process of merging BAM files from different lanes. Output was checked to ensure merging was successful and accurate. 
+
+
+## Let's get our combined feature counts
+```{r, eval=F}
+
+setwd("/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/MergedBAMFiles/")
+
+bam.filesTotal <- list.files(path = "/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/MergedBAMFiles/", pattern = "NM.*.BAM$", full.names = TRUE)
+
+
+fc <- featureCounts(bam.filesTotal, annot.ext = "gencode.vM17.annotation.gff3.gz", 
+                         isGTFAnnotationFile = TRUE, nthreads=28, isPairedEnd=TRUE, 
+                         GTF.featureType = "gene", countMultiMappingReads=FALSE)
+
+TotalCounts<-(fc$counts)
+```
+
+>For the convenience of the user, a text file (TotalCounts_OutliersRemoved.txt) is available to directly import to save time needed for calculating feature counts. 
+
+## Visualizing our raw count data
+```{r, eval=T, fig.show='hide'}
+
+#06/07/2022: Trying to remove the two samples (186 and 189) deemed outliers 
+Diet = c("Control","Control","Tangerine","Red","Control","Control","Red",
+              "Red","Control","Tangerine","Red","Red","Red","Red","Control",
+              "Control","Control","Tangerine","Tangerine",
+              "Tangerine","Tangerine","Red","Red","Red","Red","Control",
+              "Tangerine","Tangerine","Tangerine","Tangerine","Tangerine",
+              "Control","Tangerine","Control")
+
+
+TotalFC <- read.table("TotalCounts_OutliersRemoved.txt", header=T)
+#I'm exporting our count data as a text file so that it can be reimported as a less complicated object in the future. 
+
+###Make an MDS plot labeling "treatment"
+
+MergedLanesMDS<-plotMDS(TotalFC)
+
+
+
+```
+
+### MDS scores plot to check data after merging lanes
+
+```{r}
+Diet<-as.factor(Diet)
+
+
+MDSLane_X<-MergedLanesMDS$x
+MDSLane_X<-as.numeric(MDSLane_X)
+MDSLane_Y<-MergedLanesMDS$y
+MDSLane_Y<-as.numeric(MDSLane_Y)
+
+MergedLanesMDS<-data.frame(Diet, MDSLane_X, MDSLane_Y)
+
+
+LanesCombined<-
+  MergedLanesMDS%>%
+  ggplot(aes(x = MDSLane_X, y = MDSLane_Y, color = Diet, fill=Diet)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", alpha = 0.6) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black", alpha = 0.6) +
+  scale_color_manual(values = c("black", "#FF9300", "#941100"),
+                    labels = expression("Control", 
+                                        "Tangerine", 
+                                        "Red")) +
+  scale_fill_manual(values = c("black", "#FF9300", "#941100"),
+                    labels = expression("Control", 
+                                        "Tangerine", 
+                                        "Red")) + 
+  theme_classic() + 
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12),
+        axis.text = element_text(size = 12),
+        legend.text.align = 0) +
+  labs(title = "Multi Dimensional Scaling Scores Plot After Merging Lanes",
+       x = "Leading Log2 Fold Change: 54%",
+       y = "Leading Log2 Fold Change: 15%") 
+
+LanesCombined
+
+#ggsave("MDS_3DietPlot.png", plot=LanesCombined, dpi=800, width = 9, height = 6, units ="in", device="png")
+```
+
+>Compared to the untargeted metabolomics data, separation by diet is not apparent. Expression may only be marginally affected by tomato consumption which makes sense from a biological standpoint, as we would not expect thousands of genes to be differentially expressed. Differential expression analysis will allow us to see any subtle differences among treatment groups. 
+
+## Preprocessing our data
+```{r}
+#setwd("/fs/project/PAS0471/osu10028/DzakovichRNASeq/TrimmedFASTQFiles/MergedBAMFiles/")
+#TotalFC <- read.table("TotalCounts_OutliersRemoved.txt")
+Class <- read.csv("MouseClassifications_OutliersRemoved.csv", stringsAsFactors = FALSE)
+#The file "MouseClassification.csv" contains treatment information for all mice analyzed in this study
+
+
+group<-paste(Class$Diet)
+samplenames<-paste(Class$Animal_ID)
+group<-factor(group)
+samplenames<-factor(samplenames)
+table(group)
+table(samplenames)
+
+fc <- DGEList(TotalFC, group=group, samples=samplenames, genes=TotalFC[,1,drop=FALSE])
+
+```
+
+### CPM normalization
+```{r}
+#Raw counts are converted to CPM and log-CPM values using the cpm function
+cpm<-cpm(fc)
+lcpm <- cpm(fc, log=TRUE)
+
+#Removing genes that are lowly expressed
+table(rowSums(fc$counts==0)) 
+keep.exprs <- rowSums(cpm(fc)>0.37)>=11
+
+#The first value used (0.37) is calculated based on a rule of thumb (10/Library size in millions) provided in the following guide: https://f1000research.com/articles/5-1438/v2
+
+#Actual library size after alignment is on average 27.28 million reads. Therefore, 10/27.28 = 0.37
+
+#The number 11 specifies number of libraries that a gene needs to be expressed in in order to be kept. I chose >=11 because that would account for situations where a gene is expressed only in one of our treatment groups and in all of the samples within that treatment group. This number could potentially be reduced to be a bit less stringent, but may make data noisier.
+
+table(keep.exprs)
+fc <- fc[keep.exprs, , keep.lib.sizes=FALSE]
+dim(fc)
+
+```
+
+
+### TMM normalization
+```{r, warning=F,fig.show='hide'}
+
+fc2 <- calcNormFactors(fc, method = "TMM")
+
+
+#Boxplot test of TMM normalized counts
+#Can also try pseudocounts by adding +1 to CountsCPM. Doing so will eliminate negative numbers
+NormLibSize <- fc2$samples$lib.size*fc2$samples$norm.factors
+CountsCPM <- cpm(fc2, normalized.lib.size=TRUE)
+Log2CountsCPM <- log2(CountsCPM)
+boxplot(Log2CountsCPM, col="gray", las=3)
+
+```
+
+### Box and whisker plot of TMM normalized log2 data
+
+```{r, warning=F}
+
+QCCounts<-as.data.frame(Log2CountsCPM)
+QCCounts<-as.data.frame(t(QCCounts))
+Class2<-as.data.frame(Diet)
+
+SampleIDsNumeric<-c("NM_15_120","NM_15_122","NM_15_128","NM_15_133","NM_15_136",
+                    "NM_15_137","NM_15_156","NM_15_157","NM_15_159","NM_15_160",
+                    "NM_15_166","NM_15_170","NM_15_175","NM_15_177","NM_15_182",
+                    "NM_15_183","NM_15_188","NM_15_192","NM_15_195","NM_15_197",
+                    "NM_15_198","NM_15_199","NM_15_202","NM_15_203","NM_15_204",
+                    "NM_15_208","NM_15_215","NM_15_216","NM_15_217","NM_15_225",
+                    "NM_15_226","NM_15_240","NM_15_242","NM_15_245")
+
+QCCountInput<-data.frame(SampleIDsNumeric, Class2, QCCounts)
+
+names(QCCountInput)[names(QCCountInput) == 'SampleIDsNumeric'] <- 'ID'
+
+
+RNAseqQualityData_long <- QCCountInput %>%
+  pivot_longer(cols = ENSMUSG00000025902.13:ncol(.),
+               names_to = "GeneID",
+               values_to = "Counts")
+
+RNAseqQualityData_long$Diet <- factor(RNAseqQualityData_long$Diet,
+                                      levels = c("Control", "Red", "Tangerine"))
+
+RNAseqQualityData_long <- RNAseqQualityData_long %>%
+  arrange(Diet) %>%
+  mutate(ID = fct_inorder(ID))
+
+(RNASeq_quality_boxplot <- RNAseqQualityData_long %>%
+  ggplot(aes(x = ID, y = Counts, fill = Diet)) +
+  geom_boxplot(alpha = 0.6) +
+  scale_fill_manual(values = c("black", "#941100", "#FF9300")) +
+  theme_minimal() +
+  #scale_y_continuous(limits = c(-1, 17)) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(title = "RNA-Seq Counts per Million by Sample",
+       subtitle = "Gene counts are log2 transformed and TMM normalized"))
+
+#ggsave("RNASeqQCBW.png", plot=RNASeq_quality_boxplot, dpi=800, width = 9, height = 6, units ="in", device="png")
+
+```
+
+
+## Differential expression
+```{r}
+
+TotalFC_b<-fc$counts
+
+###
+
+C<-TotalFC_b[,c(1:2,5:6,9,15:17,26,32,34)]
+T<-TotalFC_b[,c(3,10,18:21,27:31,33)]
+R<-TotalFC_b[,c(4,7:8,11:14,22:25)]
+
+TotalFC_b<-data.frame(C,R,T)
+
+#head(TotalFC_b)
+
+#Since my samples aren't in order of treatment, the steps above assigned the correct treatment to each sample and essentially reorganized everything so that like treatments are near like. Doing this is important for contrasts that will be performed later. 
+
+treatment <- c(rep("C", 11), rep("R", 11), rep("T", 12))
+treatment2 <-c(rep("C", 11), rep("T", 23))
+
+#The above two lines of code are again used to assign treatments. The second line (treatment2) groups both types of tomato together to compare to control. All objects created with the number "2" appended to it are henceforth referring to analyses comparing control to tomato. 
+
+counts<-TotalFC_b
+cds<-DGEList(counts,group=treatment)
+cds2<-DGEList(counts,group=treatment2)
+
+#Doing TMM normalization here since RNAseq data was switched to dataframe to assign treatments and order samples for future contrasts
+
+cds <- calcNormFactors(cds, method = "TMM")
+cds2 <- calcNormFactors(cds2, method = "TMM")
+
+#cds2 is for control vs tomato contrast 
+
+
+```
+
+
+### Creating model matrices and estimating dispersion
+```{r}
+mod <- model.matrix(~0+cds$samples$group)
+mod2<- model.matrix(~0+cds2$samples$group)
+
+
+cds <- estimateDisp(cds, design = mod )
+plotBCV(cds, xlab="Average log CPM", ylab="Biological coefficient of variation", main="Red vs. Tangerine vs. Control")
+
+cds2 <- estimateDisp(cds2, design = mod2 )
+plotBCV(cds2, xlab="Average log CPM", ylab="Biological coefficient of variation", main="Tomato vs. Control")
+
+```
+
+>Looks good: no apparent trend in disperson (relationship between counts and variance remaining relatively similar across our data).
+
+## Fitting genewise negative binomial generalized linear models 
+```{r}
+#Fit GLM QL:
+fit <- glmQLFit(cds, mod)
+
+#Fit GLM QL for Control vs Tomato
+fit2 <-glmQLFit(cds2, mod2)
+
+head(fit$coefficients)
+```
+
+
+## Contrasts between treatments 
+```{r}
+design<-model.matrix(~treatment)
+fit<-glmQLFit(cds,design)
+
+qlfRedVsControl.2vs1<- glmQLFTest(fit, coef = 2)
+topTags(qlfRedVsControl.2vs1)
+DERedControl<-decideTestsDGE(qlfRedVsControl.2vs1, adjust.method = "BH", p.value = 0.1)
+plotMD(qlfRedVsControl.2vs1, status=DERedControl, values=c(1,-1), col=c("red","blue"), legend="topright", main="Red Vs. Control")
+
+qlfTangerineVsControl.3vs1<- glmQLFTest(fit, coef = 3)
+topTags(qlfTangerineVsControl.3vs1)
+DETangerineControl<-decideTestsDGE(qlfTangerineVsControl.3vs1, adjust.method = "BH", p.value = 0.1)
+plotMD(qlfTangerineVsControl.3vs1, status=DETangerineControl, values=c(1,-1), col=c("red","blue"), legend="topright", main="Tangerine Vs. Control")
+
+qlfTangerineVsRed.3vs2<- glmQLFTest(fit, contrast=c(0,-1,1))
+topTags(qlfTangerineVsRed.3vs2)
+DETangerineRed<-decideTestsDGE(qlfTangerineVsRed.3vs2, adjust.method = "BH", p.value = 0.1)
+plotMD(qlfTangerineVsRed.3vs2, status=DETangerineRed, values=c(1,-1), col=c("red","blue"), legend="topright", main="Tangerine Vs. Red")
+
+```
+
+### Tomato vs Control
+```{r}
+design2<-model.matrix(~treatment2)
+fit2<-glmQLFit(cds2,design2)
+qlfTomatoVsControl.2vs1<- glmQLFTest(fit2, coef = 2)
+topTags(qlfTomatoVsControl.2vs1, 10)
+DEControlTomato<-decideTestsDGE(qlfTomatoVsControl.2vs1, adjust.method = "BH", p.value = 0.1)
+plotMD(qlfTomatoVsControl.2vs1, status=DEControlTomato, values=c(1,-1), col=c("red","blue"), legend="topright", main="Tomato vs. Control")
+```
+
+## Summarizing DE expression analyses
+
+```{r}
+DEgenesTomatoControl<-topTags(qlfTomatoVsControl.2vs1, n = Inf, adjust.method = "BH", sort.by = "PValue", p.value = 0.1)
+summary(decideTestsDGE(qlfTomatoVsControl.2vs1, adjust.method = "BH", p.value = 0.1, lfc = 0))
+
+DEgenesTangerineRed<-topTags(qlfTangerineVsRed.3vs2, n = Inf, adjust.method = "BH", sort.by = "PValue", p.value = 0.1)
+summary(decideTestsDGE(qlfTangerineVsRed.3vs2, adjust.method = "BH", p.value = 0.1, lfc = 0))
+
+DEgenesTangerineControl<-topTags(qlfTangerineVsControl.3vs1, n = Inf, adjust.method = "BH", sort.by = "PValue", p.value = 0.1)
+summary(decideTestsDGE(qlfTangerineVsControl.3vs1, adjust.method = "BH", p.value = 0.1, lfc = 0))
+
+DEgenesRedControl<-topTags(qlfRedVsControl.2vs1, n = Inf, adjust.method = "BH", sort.by = "PValue", p.value = 0.1)
+summary(decideTestsDGE(qlfRedVsControl.2vs1, adjust.method = "BH", p.value = 0.1, lfc = 0))
+
+```
+
+## Writing results to CSV files
+
+```{r, eval=FALSE}
+DEgenesTomatoControl<-topTags(qlfTomatoVsControl.2vs1, n = Inf, adjust.method = "BH", sort.by = "PValue", p.value = 0.1)
+summary(decideTestsDGE(qlfTomatoVsControl.2vs1, adjust.method = "BH", p.value = 0.1, lfc = 0))
+write.csv(DEgenesTomatoControl$table[abs(DEgenesTomatoControl$table$logFC)>=0,], "DEgenesTomatoControl_0pt1FDR_OutliersRemoved_12122022.csv", sep = "\t", quote = FALSE)
+
+DEgenesTangerineRed<-topTags(qlfTangerineVsRed.3vs2, n = Inf, adjust.method = "BH", sort.by = "PValue", p.value = 0.1)
+summary(decideTestsDGE(qlfTangerineVsRed.3vs2, adjust.method = "BH", p.value = 0.1, lfc = 0))
+write.csv(DEgenesTangerineRed$table[abs(DEgenesTangerineRed$table$logFC)>=0,], "DEgenesTangerineRed_0pt1FDR_OutliersRemoved_12122022.csv", sep = "\t", quote = FALSE)
+
+DEgenesTangerineControl<-topTags(qlfTangerineVsControl.3vs1, n = Inf, adjust.method = "BH", sort.by = "PValue", p.value = 0.1)
+summary(decideTestsDGE(qlfTangerineVsControl.3vs1, adjust.method = "BH", p.value = 0.1, lfc = 0))
+write.csv(DEgenesTangerineControl$table[abs(DEgenesTangerineControl$table$logFC)>=0,], "DEgenesTangerineControl_0pt1FDR_OutliersRemoved_12122022.csv", sep = "\t", quote = FALSE)
+
+DEgenesRedControl<-topTags(qlfRedVsControl.2vs1, n = Inf, adjust.method = "BH", sort.by = "PValue", p.value = 0.1)
+summary(decideTestsDGE(qlfRedVsControl.2vs1, adjust.method = "BH", p.value = 0.1, lfc = 0))
+write.csv(DEgenesRedControl$table[abs(DEgenesRedControl$table$logFC)>=0,], "DEgenesRedControl_0pt1FDR_OutliersRemoved_12122022.csv", sep = "\t", quote = FALSE)
+```
